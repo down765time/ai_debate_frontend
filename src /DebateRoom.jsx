@@ -7,8 +7,8 @@ import "./DebateRoom.css";
 
 const BACKEND_URL =
   window.location.hostname === "localhost"
-    ? "http://localhost:8000/"
-    : "https://debateaibackend-production.up.railway.app/";
+    ? "http://localhost:8000/debate"
+    : "https://debateaibackend-production.up.railway.app/debate";
 
 function DebateRoom({ setPage }) {
   const [messages, setMessages] = useState([
