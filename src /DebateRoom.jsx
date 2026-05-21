@@ -4,9 +4,10 @@ import "./DebateRoom.css";
 // ─────────────────────────────────────────────
 // BACKEND URL — jab backend run ho raha ho
 // ─────────────────────────────────────────────
+
 const BACKEND_URL =
   window.location.hostname === "localhost"
-    ? "http://localhost:8000"
+    ? "http://localhost:8000/debate"
     : "https://debateaibackend-production.up.railway.app/debate";
 
 function DebateRoom({ setPage }) {
@@ -86,7 +87,7 @@ function DebateRoom({ setPage }) {
       formData.append("file", audioBlob, "recording.webm");
 
       // POST to backend /debate endpoint
-      const response = await fetch(`${BACKEND_URL}/debate`, {
+      const response = await fetch(BACKEND_URL), {
         method: "POST",
         body: formData,
       });
