@@ -1,6 +1,6 @@
 import { useState } from "react";
 import Home from "./pages/Home";
-import DebateRoom from "./pages/DebateRoom";
+import DebateRoom from "./DebateRoom";
 import "./App.css";
 
 function App() {
