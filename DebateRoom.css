@@ -1,0 +1,92 @@
+.debate-room {
+  min-height: 100vh;
+  background: #0b1120;
+  color: white;
+  padding: 30px;
+}
+
+.top-bar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.timer {
+  background: #38bdf8;
+  color: black;
+  padding: 10px 18px;
+  border-radius: 25px;
+  font-weight: bold;
+}
+
+.topics {
+  display: flex;
+  gap: 15px;
+  flex-wrap: wrap;
+  margin-top: 30px;
+}
+
+.topics button {
+  background: rgba(255,255,255,0.06);
+  color: white;
+  border: 1px solid #334155;
+  padding: 12px 18px;
+  border-radius: 30px;
+  cursor: pointer;
+}
+
+.chat-box {
+  margin-top: 40px;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.message {
+  max-width: 60%;
+  padding: 16px;
+  border-radius: 18px;
+  line-height: 1.5;
+}
+
+.user {
+  background: #2563eb;
+  margin-left: auto;
+}
+
+.ai {
+  background: #1e293b;
+}
+
+.mic-area {
+  text-align: center;
+  margin-top: 60px;
+}
+
+.mic-btn {
+  width: 90px;
+  height: 90px;
+  border-radius: 50%;
+  border: none;
+  font-size: 34px;
+  cursor: pointer;
+  background: #38bdf8;
+  animation: pulse 1.5s infinite;
+}
+
+.mic-area p {
+  margin-top: 12px;
+  color: #94a3b8;
+}
+
+@keyframes pulse {
+  0% { box-shadow: 0 0 0 0 rgba(56,189,248,.6); }
+  70% { box-shadow: 0 0 0 20px rgba(56,189,248,0); }
+  100% { box-shadow: 0 0 0 0 rgba(56,189,248,0); }
+}
+
+@media (max-width: 768px) {
+  .message {
+    max-width: 100%;
+  }
+}
