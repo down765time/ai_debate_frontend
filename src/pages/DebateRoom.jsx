@@ -132,7 +132,7 @@ function DebateRoom({ setPage }) {
       });
 
       const mediaRecorder = new MediaRecorder(stream, {
-        mimeType: "audio/webm",
+        mimeType: "audio/webm;codecs=opus",
       });
 
       mediaRecorderRef.current = mediaRecorder;
