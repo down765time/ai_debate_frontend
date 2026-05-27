@@ -4,10 +4,8 @@ import "../DebateRoom.css";
 // ─────────────────────────────────────────────
 // BACKEND URL — jab backend run ho raha ho
 // ─────────────────────────────────────────────
-const BACKEND_URL =
-  window.location.hostname === "localhost"
-    ? "http://localhost:8000"
-    : "https://aivoicedebatepartner-production.up.railway.app";
+const BACKEND_URL = "https://debateaibackend-production.up.railway.app";
+
 
 function DebateRoom({ setPage }) {
   const [messages, setMessages] = useState([
