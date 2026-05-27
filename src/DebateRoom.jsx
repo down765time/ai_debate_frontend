@@ -1,5 +1,5 @@
 import { useState, useRef } from "react";
-import "./DebateRoom.css";
+import "./src/DebateRoom.css";
 
 // ─────────────────────────────────────────────
 // BACKEND URL
