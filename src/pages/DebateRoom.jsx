@@ -1,8 +1,8 @@
 import { useState, useRef } from "react";
-import "./src/DebateRoom.css";
+import "./DebateRoom.css";
 
 // ─────────────────────────────────────────────
-// BACKEND URL
+// BACKEND URL — jab backend run ho raha ho
 // ─────────────────────────────────────────────
 const BACKEND_URL = "https://debateaibackend-production.up.railway.app";
 
@@ -14,156 +14,50 @@ function DebateRoom({ setPage }) {
     },
   ]);
 
-  const [recording, setRecording] = useState(false);
-  const [typing, setTyping] = useState(false);
-  const [errorMsg, setErrorMsg] = useState("");
-  const [scores, setScores] = useState(null);
+  const [recording, setRecording]   = useState(false);
+  const [typing, setTyping]         = useState(false);
+  const [errorMsg, setErrorMsg]     = useState("");
+  const [scores, setScores]         = useState(null);   // debate scores
 
+  // Refs for MediaRecorder
   const mediaRecorderRef = useRef(null);
-  const audioChunksRef = useRef([]);
-
-  // ─────────────────────────────────────────
-  // WAV CONVERTER
-  // ─────────────────────────────────────────
-
-  async function convertToWav(blob) {
-    const audioContext = new AudioContext({
-      sampleRate: 16000,
-    });
-
-    const arrayBuffer = await blob.arrayBuffer();
-
-    const audioBuffer = await audioContext.decodeAudioData(arrayBuffer);
-
-    const offlineContext = new OfflineAudioContext(
-      1,
-      audioBuffer.duration * 16000,
-      16000
-    );
-
-    const source = offlineContext.createBufferSource();
-    source.buffer = audioBuffer;
-    source.connect(offlineContext.destination);
-    source.start(0);
-
-    const renderedBuffer = await offlineContext.startRendering();
-
-    const wavBuffer = audioBufferToWav(renderedBuffer);
-
-    return new Blob([wavBuffer], { type: "audio/wav" });
-  }
-
-  function audioBufferToWav(buffer) {
-    const length = buffer.length * 2 + 44;
-
-    const arrayBuffer = new ArrayBuffer(length);
-
-    const view = new DataView(arrayBuffer);
-
-    const channelData = buffer.getChannelData(0);
-
-    let offset = 0;
-
-    const writeString = (str) => {
-      for (let i = 0; i < str.length; i++) {
-        view.setUint8(offset++, str.charCodeAt(i));
-      }
-    };
-
-    writeString("RIFF");
-
-    view.setUint32(offset, 36 + channelData.length * 2, true);
-    offset += 4;
-
-    writeString("WAVE");
-
-    writeString("fmt ");
-
-    view.setUint32(offset, 16, true);
-    offset += 4;
-
-    view.setUint16(offset, 1, true);
-    offset += 2;
-
-    view.setUint16(offset, 1, true);
-    offset += 2;
-
-    view.setUint32(offset, 16000, true);
-    offset += 4;
-
-    view.setUint32(offset, 16000 * 2, true);
-    offset += 4;
-
-    view.setUint16(offset, 2, true);
-    offset += 2;
-
-    view.setUint16(offset, 16, true);
-    offset += 2;
-
-    writeString("data");
-
-    view.setUint32(offset, channelData.length * 2, true);
-    offset += 4;
-
-    for (let i = 0; i < channelData.length; i++, offset += 2) {
-      const sample = Math.max(-1, Math.min(1, channelData[i]));
-
-      view.setInt16(
-        offset,
-        sample < 0 ? sample * 0x8000 : sample * 0x7fff,
-        true
-      );
-    }
-
-    return arrayBuffer;
-  }
+  const audioChunksRef   = useRef([]);
 
   // ─────────────────────────────────────────
   // START RECORDING
   // ─────────────────────────────────────────
-
   const startRecording = async () => {
     setErrorMsg("");
     audioChunksRef.current = [];
 
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({
-        audio: true,
-      });
+      // Ask browser for mic permission
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
 
-      const mediaRecorder = new MediaRecorder(stream, {
-        mimeType: "audio/webm",
-      });
-
+      const mediaRecorder = new MediaRecorder(stream);
       mediaRecorderRef.current = mediaRecorder;
 
+      // Collect audio chunks as they come
       mediaRecorder.ondataavailable = (event) => {
         if (event.data.size > 0) {
           audioChunksRef.current.push(event.data);
         }
       };
 
+      // When recording stops — send to backend
       mediaRecorder.onstop = async () => {
-        const webmBlob = new Blob(audioChunksRef.current, {
-          type: "audio/webm",
-        });
+        const audioBlob = new Blob(audioChunksRef.current, { type: "audio/webm" });
+        await sendToBackend(audioBlob);
 
-        const wavBlob = await convertToWav(webmBlob);
-
-        await sendToBackend(wavBlob);
-
+        // Stop all mic tracks (release mic)
         stream.getTracks().forEach((track) => track.stop());
       };
 
       mediaRecorder.start();
-
       setRecording(true);
 
     } catch (err) {
-      setErrorMsg(
-        "Mic access denied. Please allow microphone permission."
-      );
-
+      setErrorMsg("Mic access denied. Please allow microphone permission.");
       setRecording(false);
     }
   };
@@ -171,27 +65,24 @@ function DebateRoom({ setPage }) {
   // ─────────────────────────────────────────
   // STOP RECORDING
   // ─────────────────────────────────────────
-
   const stopRecording = () => {
     if (mediaRecorderRef.current && recording) {
       mediaRecorderRef.current.stop();
-
       setRecording(false);
-
       setTyping(true);
     }
   };
 
   // ─────────────────────────────────────────
-  // SEND TO BACKEND
+  // SEND AUDIO TO BACKEND
   // ─────────────────────────────────────────
-
   const sendToBackend = async (audioBlob) => {
     try {
+      // Create form data with audio file
       const formData = new FormData();
+      formData.append("file", audioBlob, "recording.webm");
 
-      formData.append("file", audioBlob, "recording.wav");
-
+      // POST to backend /debate endpoint
       const response = await fetch(`${BACKEND_URL}/debate`, {
         method: "POST",
         body: formData,
@@ -203,6 +94,7 @@ function DebateRoom({ setPage }) {
 
       const data = await response.json();
 
+      // Show user's transcribed text
       if (data.transcript) {
         setMessages((prev) => [
           ...prev,
@@ -210,6 +102,7 @@ function DebateRoom({ setPage }) {
         ]);
       }
 
+      // Show AI's counter-argument
       if (data.reply_text) {
         setMessages((prev) => [
           ...prev,
@@ -217,37 +110,32 @@ function DebateRoom({ setPage }) {
         ]);
       }
 
+      // Save scores for display
       if (data.score) {
         setScores({
-          clarity: data.clarity,
-          logic: data.logic,
-          evidence: data.evidence,
-          persuasiveness: data.persuasiveness,
+          clarity:          data.clarity,
+          logic:            data.logic,
+          evidence:         data.evidence,
+          persuasiveness:   data.persuasiveness,
           rebuttal_strength: data.rebuttal_strength,
-          score: data.score,
-          feedback: data.feedback,
+          score:            data.score,
+          feedback:         data.feedback,
         });
       }
 
+      // Play AI voice response
       if (data.response_audio_file) {
         const audio = new Audio(
           `${BACKEND_URL}/download/${data.response_audio_file}`
         );
-
         audio.play();
       }
 
     } catch (err) {
-      setErrorMsg(
-        "Backend se connect nahi ho saka. Backend run kar lein pehle."
-      );
-
+      setErrorMsg("Backend se connect nahi ho saka. Backend run kar lein pehle.");
       setMessages((prev) => [
         ...prev,
-        {
-          sender: "ai",
-          text: "Sorry, koi error aa gayi. Backend check karein.",
-        },
+        { sender: "ai", text: "Sorry, koi error aa gayi. Backend check karein." },
       ]);
     } finally {
       setTyping(false);
@@ -255,44 +143,41 @@ function DebateRoom({ setPage }) {
   };
 
   // ─────────────────────────────────────────
-  // UI
+  // RENDER
   // ─────────────────────────────────────────
-
   return (
     <div className="debate-room">
 
+      {/* Navbar */}
       <nav className="navbar">
         <h2>DebateAI</h2>
-
         <div className="nav-btns">
-          <button onClick={() => setPage("home")}>
-            Back Home
-          </button>
+          <button onClick={() => setPage("home")}>Back Home</button>
         </div>
       </nav>
 
+      {/* Hero */}
       <section className="hero room-hero">
         <h1>🎤 Live Debate Room</h1>
-
         <p>Use your voice and challenge the AI opponent.</p>
       </section>
 
+      {/* Error message */}
       {errorMsg && (
-        <div
-          style={{
-            background: "#450a0a",
-            color: "#fca5a5",
-            padding: "12px 18px",
-            borderRadius: "12px",
-            maxWidth: "700px",
-            margin: "16px auto 0",
-            textAlign: "center",
-          }}
-        >
+        <div style={{
+          background: "#450a0a",
+          color: "#fca5a5",
+          padding: "12px 18px",
+          borderRadius: "12px",
+          maxWidth: "700px",
+          margin: "16px auto 0",
+          textAlign: "center"
+        }}>
           ⚠️ {errorMsg}
         </div>
       )}
 
+      {/* Chat messages */}
       <div className="chat-container">
         {messages.map((msg, index) => (
           <div key={index} className={`chat-msg ${msg.sender}`}>
@@ -301,137 +186,58 @@ function DebateRoom({ setPage }) {
         ))}
 
         {typing && (
-          <div className="chat-msg ai">
-            AI soch raha hai... ⏳
-          </div>
+          <div className="chat-msg ai">AI soch raha hai... ⏳</div>
         )}
       </div>
 
+      {/* Scores — dikhein jab pehli response aaye */}
       {scores && (
-        <div
-          style={{
-            maxWidth: "700px",
-            margin: "30px auto 0",
-            background: "#13233d",
-            borderRadius: "18px",
-            padding: "22px 26px",
-          }}
-        >
-          <h3
-            style={{
-              color: "#38bdf8",
-              marginBottom: "14px",
-            }}
-          >
-            📊 Debate Score
-          </h3>
-
-          <div
-            style={{
-              display: "grid",
-              gridTemplateColumns: "1fr 1fr",
-              gap: "10px",
-            }}
-          >
+        <div style={{
+          maxWidth: "700px",
+          margin: "30px auto 0",
+          background: "#13233d",
+          borderRadius: "18px",
+          padding: "22px 26px",
+        }}>
+          <h3 style={{ color: "#38bdf8", marginBottom: "14px" }}>📊 Debate Score</h3>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "10px" }}>
             {[
-              ["Clarity", scores.clarity],
-              ["Logic", scores.logic],
-              ["Evidence", scores.evidence],
-              ["Persuasiveness", scores.persuasiveness],
+              ["Clarity",           scores.clarity],
+              ["Logic",             scores.logic],
+              ["Evidence",          scores.evidence],
+              ["Persuasiveness",    scores.persuasiveness],
               ["Rebuttal Strength", scores.rebuttal_strength],
             ].map(([label, val]) => (
-              <div
-                key={label}
-                style={{
-                  background: "#1e293b",
-                  borderRadius: "10px",
-                  padding: "10px 14px",
-                }}
-              >
-                <div
-                  style={{
-                    color: "#94a3b8",
-                    fontSize: "13px",
-                  }}
-                >
-                  {label}
-                </div>
-
-                <div
-                  style={{
-                    color: "#38bdf8",
-                    fontSize: "20px",
-                    fontWeight: "bold",
-                  }}
-                >
-                  {val}/10
-                </div>
+              <div key={label} style={{ background: "#1e293b", borderRadius: "10px", padding: "10px 14px" }}>
+                <div style={{ color: "#94a3b8", fontSize: "13px" }}>{label}</div>
+                <div style={{ color: "#38bdf8", fontSize: "20px", fontWeight: "bold" }}>{val}/10</div>
               </div>
             ))}
-
-            <div
-              style={{
-                background: "#1e293b",
-                borderRadius: "10px",
-                padding: "10px 14px",
-              }}
-            >
-              <div
-                style={{
-                  color: "#94a3b8",
-                  fontSize: "13px",
-                }}
-              >
-                Overall Score
-              </div>
-
-              <div
-                style={{
-                  color: "#4ade80",
-                  fontSize: "20px",
-                  fontWeight: "bold",
-                }}
-              >
-                {scores.score}/10
-              </div>
+            <div style={{ background: "#1e293b", borderRadius: "10px", padding: "10px 14px" }}>
+              <div style={{ color: "#94a3b8", fontSize: "13px" }}>Overall Score</div>
+              <div style={{ color: "#4ade80", fontSize: "20px", fontWeight: "bold" }}>{scores.score}/10</div>
             </div>
           </div>
-
           {scores.feedback && (
-            <div
-              style={{
-                marginTop: "14px",
-                color: "#cbd5e1",
-                fontSize: "14px",
-                lineHeight: "1.6",
-              }}
-            >
+            <div style={{ marginTop: "14px", color: "#cbd5e1", fontSize: "14px", lineHeight: "1.6" }}>
               💡 <strong>Feedback:</strong> {scores.feedback}
             </div>
           )}
         </div>
       )}
 
-      <div
-        className="mic-wrap"
-        style={{ marginBottom: "60px" }}
-      >
+      {/* Mic button */}
+      <div className="mic-wrap" style={{ marginBottom: "60px" }}>
         <button
           className={`mic-btn-big ${recording ? "pulse" : ""}`}
           onClick={recording ? stopRecording : startRecording}
-          style={{
-            background: recording ? "#ef4444" : "#38bdf8",
-          }}
+          style={{ background: recording ? "#ef4444" : "#38bdf8" }}
         >
           {recording ? "⏹" : "🎤"}
         </button>
-
-        <p>
-          {recording
-            ? "Recording... (Dobara click karein rokne ke liye)"
-            : "Tap to Speak"}
-        </p>
+        <p>{recording ? "Recording... (Dobara click karein rokne ke liye)" : "Tap to Speak"}</p>
       </div>
+
     </div>
   );
 }
