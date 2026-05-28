@@ -26,97 +26,7 @@ function DebateRoom({ setPage }) {
   // WAV CONVERTER
   // ─────────────────────────────────────────
 
-  async function convertToWav(blob) {
-    const audioContext = new AudioContext({
-      sampleRate: 16000,
-    });
 
-    const arrayBuffer = await blob.arrayBuffer();
-
-    const audioBuffer = await audioContext.decodeAudioData(arrayBuffer);
-
-    const offlineContext = new OfflineAudioContext(
-      1,
-      audioBuffer.duration * 16000,
-      16000
-    );
-
-    const source = offlineContext.createBufferSource();
-    source.buffer = audioBuffer;
-    source.connect(offlineContext.destination);
-    source.start(0);
-
-    const renderedBuffer = await offlineContext.startRendering();
-
-    const wavBuffer = audioBufferToWav(renderedBuffer);
-
-    return new Blob([wavBuffer], { type: "audio/wav" });
-  }
-
-  function audioBufferToWav(buffer) {
-    const length = buffer.length * 2 + 44;
-
-    const arrayBuffer = new ArrayBuffer(length);
-
-    const view = new DataView(arrayBuffer);
-
-    const channelData = buffer.getChannelData(0);
-
-    let offset = 0;
-
-    const writeString = (str) => {
-      for (let i = 0; i < str.length; i++) {
-        view.setUint8(offset++, str.charCodeAt(i));
-      }
-    };
-
-    writeString("RIFF");
-
-    view.setUint32(offset, 36 + channelData.length * 2, true);
-    offset += 4;
-
-    writeString("WAVE");
-
-    writeString("fmt ");
-
-    view.setUint32(offset, 16, true);
-    offset += 4;
-
-    view.setUint16(offset, 1, true);
-    offset += 2;
-
-    view.setUint16(offset, 1, true);
-    offset += 2;
-
-    view.setUint32(offset, 16000, true);
-    offset += 4;
-
-    view.setUint32(offset, 16000 * 2, true);
-    offset += 4;
-
-    view.setUint16(offset, 2, true);
-    offset += 2;
-
-    view.setUint16(offset, 16, true);
-    offset += 2;
-
-    writeString("data");
-
-    view.setUint32(offset, channelData.length * 2, true);
-    offset += 4;
-
-    for (let i = 0; i < channelData.length; i++, offset += 2) {
-      const sample = Math.max(-1, Math.min(1, channelData[i]));
-
-      view.setInt16(
-        offset,
-        sample < 0 ? sample * 0x8000 : sample * 0x7fff,
-        true
-      );
-    }
-
-    return arrayBuffer;
-  }
 
   // ─────────────────────────────────────────
   // START RECORDING
@@ -148,7 +58,6 @@ function DebateRoom({ setPage }) {
           type: "audio/webm",
         });
 
-        const wavBlob = await convertToWav(webmBlob);
 
         await sendToBackend(wavBlob);
 
@@ -190,7 +99,7 @@ function DebateRoom({ setPage }) {
     try {
       const formData = new FormData();
 
-      formData.append("file", audioBlob, "recording.wav");
+      formData.append("file", audioBlob, "recording.webm");
 
       const response = await fetch(`${BACKEND_URL}/debate`, {
         method: "POST",
