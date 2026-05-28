@@ -59,7 +59,7 @@ function DebateRoom({ setPage }) {
         });
 
 
-        await sendToBackend(wavBlob);
+        await sendToBackend(webmBlob);
 
         stream.getTracks().forEach((track) => track.stop());
       };
