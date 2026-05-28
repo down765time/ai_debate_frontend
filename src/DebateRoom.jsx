@@ -66,6 +66,12 @@ function DebateRoom({ setPage }) {
 
       mediaRecorder.start();
 
+      setTimeout(() => {
+        if (mediaRecorder.state === "recording") {
+          stopRecording();
+        }
+      }, 10000);
+
       setRecording(true);
 
     } catch (err) {
